@@ -111,11 +111,22 @@ class BaseAgent(ABC):
 
         """
         try:
-            # Формируем сообщения для OpenAI API
-            messages = [
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": state.user_message},
-            ]
+            # Формируем сообщения для OpenAI API, начиная с системного промпта
+            messages = [{"role": "system", "content": self.system_prompt}]
+
+            # Добавляем историю сообщений для контекста диалога
+            if state.message_history:
+                for msg in state.message_history:
+                    if hasattr(msg, "type"):
+                        # LangChain message format (HumanMessage/AIMessage)
+                        role = "user" if msg.type == "human" else "assistant"
+                        messages.append({"role": role, "content": msg.content})
+                    elif isinstance(msg, dict):
+                        # Dict format с ролями
+                        messages.append(msg)
+
+            # Добавляем текущее сообщение пользователя
+            messages.append({"role": "user", "content": state.user_message})
 
             # Получаем ответ от OpenAI
             response = await self.openai_client.chat.completions.create(

@@ -406,13 +406,18 @@ class AgentOrchestrator:
 
         """
         try:
-            # Создаем начальное состояние
+            # Извлекаем историю сообщений из conversation_history, если она есть
+            message_history = []
+            if conversation_history and "messages" in conversation_history:
+                message_history = conversation_history["messages"]
+
+            # Создаем начальное состояние с историей сообщений
             initial_state = AgentState(
                 dialog_id=dialog_id,
                 current_agent="router",
                 user_message=message,
                 agent_response="",
-                message_history=[],
+                message_history=message_history,  # Передаем историю из conversation_history
                 next_agent="router",
                 metadata={},
             )
