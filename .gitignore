@@ -215,3 +215,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 storage/
+
+# Local test files
+test_memory*.py
