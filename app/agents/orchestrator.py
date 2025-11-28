@@ -287,6 +287,7 @@ class AgentOrchestrator:
 
         """
         logger.info(f"Router processing: {state.user_message[:50]}...")
+        logger.debug(f"Router has message_history with {len(state.message_history)} messages")
 
         # Если state - словарь, преобразуем в AgentState
         if isinstance(state, dict):
@@ -299,11 +300,16 @@ class AgentOrchestrator:
         state.current_agent = "router"
         state.next_agent = ""  # Будет определено LLM
 
+        from langchain_core.messages import AIMessage, HumanMessage
+
+        state.message_history = [*state.message_history, HumanMessage(content=state.user_message), AIMessage(content=response)]
+
         return state
 
     async def _tech_support_node(self, state: AgentState) -> AgentState:
         """Узел техподдержки в графе."""
         logger.info(f"Tech support processing: {state.user_message[:50]}...")
+        logger.debug(f"Tech support has message_history with {len(state.message_history)} messages")
 
         # Если state - словарь, преобразуем в AgentState
         if isinstance(state, dict):
@@ -315,6 +321,15 @@ class AgentOrchestrator:
         state.agent_response = response
         state.current_agent = "tech_support"
         state.next_agent = ""
+
+        # ВАЖНО: Добавляем текущий обмен в историю для следующих агентов
+        from langchain_core.messages import AIMessage, HumanMessage
+
+        state.message_history = [
+            *state.message_history,
+            HumanMessage(content=state.user_message),
+            AIMessage(content=response),
+        ]
 
         # Проверяем, нужно ли немедленно завершить диалог
         message_lower = state.user_message.lower()
@@ -330,6 +345,7 @@ class AgentOrchestrator:
     async def _sales_node(self, state: AgentState) -> AgentState:
         """Узел продаж в графе."""
         logger.info(f"Sales processing: {state.user_message[:50]}...")
+        logger.debug(f"Sales has message_history with {len(state.message_history)} messages")
 
         # Если state - словарь, преобразуем в AgentState
         if isinstance(state, dict):
@@ -341,6 +357,15 @@ class AgentOrchestrator:
         state.agent_response = response
         state.current_agent = "sales"
         state.next_agent = ""
+
+        # ВАЖНО: Добавляем текущий обмен в историю для следующих агентов
+        from langchain_core.messages import AIMessage, HumanMessage
+
+        state.message_history = [
+            *state.message_history,
+            HumanMessage(content=state.user_message),
+            AIMessage(content=response),
+        ]
 
         # Проверяем, нужно ли немедленно завершить диалог
         message_lower = state.user_message.lower()
@@ -448,12 +473,13 @@ class AgentOrchestrator:
             return result
 
         except Exception as e:
-            logger.error(f"Error in LangGraph processing: {e}")
+            logger.error(f"Error in LangGraph processing: {e}", exc_info=True)
+            # При ошибке пытаемся вернуть роутер вместо error, чтобы не терять контекст
             return {
-                "agent_response": "Извините, произошла техническая ошибка. Попробуйте еще раз.",
-                "current_agent": "error",
+                "agent_response": "Извините, произошла техническая ошибка. Попробуйте переформулировать запрос, и я постараюсь помочь.",
+                "current_agent": "router",  # Изменено с "error" на "router"
                 "dialog_id": dialog_id,
-                "metadata": {"error": str(e)},
+                "metadata": {"error": str(e), "error_type": type(e).__name__},
             }
 
     async def process_dialog_turn(
